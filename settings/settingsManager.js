@@ -10,6 +10,7 @@ export const defaultSettings = {
     inject: true, // Should edit messages with new content
     replace_inline: false, // AKA Disable Diff Viewer
     hide_until_last: true, // Skips all message edit and hides the message until pipeline is about to end
+    dynamic_substitution: false, // Gradually replace words from the previous pass while streaming instead of hiding or showing raw chunks
     stream_pipeline: true, // Streaming, has to have default sillystreaming enabled too
     debug_mode: false,
     disable_editable_diff: true, // Disables the edit field in the diff viewer
@@ -23,7 +24,7 @@ export const defaultSettings = {
 };
 
 export function initSettingsListeners() {
-    $("#recast_enabled, #recast_autorun, #recast_inject, #recast_replace_inline, #recast_hide_until_last, #recast_stream_pipeline, #recast_debug_mode, #recast_disable_editable_diff, #recast_apply_regex_prompts, #recast_legacy_api, #recast_compatibility, #recast_scene_context_as_roles").on("change", saveSettings);
+    $("#recast_enabled, #recast_autorun, #recast_inject, #recast_replace_inline, #recast_hide_until_last, #recast_dynamic_substitution, #recast_stream_pipeline, #recast_debug_mode, #recast_disable_editable_diff, #recast_apply_regex_prompts, #recast_legacy_api, #recast_compatibility, #recast_scene_context_as_roles").on("change", saveSettings);
     $("#recast_min_chars").on("input change", saveSettings);
 
     // Compatibility warn
@@ -45,6 +46,7 @@ export async function loadSettings() {
     $("#recast_inject").prop("checked", extension_settings[extensionName].inject);
     $("#recast_replace_inline").prop("checked", extension_settings[extensionName].replace_inline);
     $("#recast_hide_until_last").prop("checked", extension_settings[extensionName].hide_until_last);
+    $("#recast_dynamic_substitution").prop("checked", extension_settings[extensionName].dynamic_substitution);
     $("#recast_stream_pipeline").prop("checked", extension_settings[extensionName].stream_pipeline);
     $("#recast_debug_mode").prop("checked", extension_settings[extensionName].debug_mode);
     $("#recast_disable_editable_diff").prop("checked", extension_settings[extensionName].disable_editable_diff);
@@ -64,6 +66,7 @@ export function saveSettings() {
     extension_settings[extensionName].inject = $("#recast_inject").prop("checked");
     extension_settings[extensionName].replace_inline = $("#recast_replace_inline").prop("checked");
     extension_settings[extensionName].hide_until_last = $("#recast_hide_until_last").prop("checked");
+    extension_settings[extensionName].dynamic_substitution = $("#recast_dynamic_substitution").prop("checked");
     extension_settings[extensionName].stream_pipeline = $("#recast_stream_pipeline").prop("checked");
     extension_settings[extensionName].debug_mode = $("#recast_debug_mode").prop("checked");
     extension_settings[extensionName].disable_editable_diff = $("#recast_disable_editable_diff").prop("checked");

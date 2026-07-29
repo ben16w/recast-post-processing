@@ -259,6 +259,46 @@ function safeUpdateMessageText(mesId, msg) {
     }
 }
 
+// Dynamic Substitution: blend previous text with incoming stream so sentences are gradually replaced
+function splitIntoChunks(text) {
+    const chunks = [];
+    let current = '';
+    const tokens = text.split(/(\s+)/);
+
+    for (const token of tokens) {
+        current += token;
+        const trimmed = token.trim();
+        if (trimmed.length > 0 && /[.!?…;:]$/.test(trimmed)) {
+            chunks.push(current);
+            current = '';
+        }
+    }
+
+    if (current) chunks.push(current);
+
+    return chunks;
+}
+
+function blendStreamingText(oldText, newText) {
+    if (!oldText) return newText;
+    if (!newText) return oldText;
+
+    const oldChunks = splitIntoChunks(oldText);
+    const newChunks = splitIntoChunks(newText);
+    const blended = [];
+    const maxLen = Math.max(oldChunks.length, newChunks.length);
+
+    for (let i = 0; i < maxLen; i++) {
+        if (i < newChunks.length) {
+            blended.push(newChunks[i]);
+        } else if (i < oldChunks.length) {
+            blended.push(oldChunks[i]);
+        }
+    }
+
+    return blended.join('');
+}
+
 // PRESET stuff
 function populateConnectionDropdown(selectElement, currentValue) {
     const st = getST();
@@ -466,8 +506,6 @@ export async function runPass(pass, text, onChunk = null) {
                 UserParts.push(`<scene_context>\n${SceneContext}\n</scene_context>`);
             }
         }
-    } catch (e) {
-        console.warn("Recast: Error applying regex to raw text for pass " + pass.name, e);
     }
 
     // Apply ST Regex to outgoing prompts (enables prompt-only rules like 'Alter Outgoing Prompt')
@@ -677,9 +715,11 @@ export async function runPipeline(originalText, messageId, skipHide = false, pre
         pipelineBar.start(enabledPasses.length, currentText);
 
         if (!skipHide && extension_settings[extensionName].hide_until_last && currentMessageId !== null) {
-            const mesEl = document.querySelector(`.mes[mesid="${currentMessageId}"]`);
-            const mesTextEl = mesEl?.querySelector('.mes_text');
-            if (mesTextEl) mesTextEl.innerHTML = '';
+            if (!extension_settings[extensionName].dynamic_substitution) {
+                const mesEl = document.querySelector(`.mes[mesid="${currentMessageId}"]`);
+                const mesTextEl = mesEl?.querySelector('.mes_text');
+                if (mesTextEl) mesTextEl.innerHTML = '';
+            }
         }
     }
 
@@ -724,6 +764,10 @@ export async function runPipeline(originalText, messageId, skipHide = false, pre
                 // Append any new un-regexed tokens that arrived during the cooldown
                 if (lastRegexResult) {
                     textToRender = lastRegexResult + chunkText.slice(lastRegexChunkLength);
+                }
+
+                if (extension_settings[extensionName].dynamic_substitution) {
+                    textToRender = blendStreamingText(currentText, textToRender);
                 }
 
                 const msg = getST().chat[currentMessageId];
@@ -1128,8 +1172,12 @@ jQuery(async () => {
                             hideNextAiMessage = false;
                             const mesTextEl = node.querySelector('.mes_text');
                             if (mesTextEl) {
-                                attachStreamIntercept(mesTextEl);
-                                logDebug('Recast: stream intercepted on new message — blanking until pipeline done.');
+                                if (extension_settings[extensionName].dynamic_substitution) {
+                                    logDebug('Recast: dynamic substitution active — skipping stream intercept on new message.');
+                                } else {
+                                    attachStreamIntercept(mesTextEl);
+                                    logDebug('Recast: stream intercepted on new message — blanking until pipeline done.');
+                                }
                             }
                             return;
                         }
@@ -1255,14 +1303,18 @@ jQuery(async () => {
                 // Swipe/regenerate update an existing element — blank its text directly now
                 const st2 = getST();
                 const mesId = st2.chat.length - 1;
-                if (mesId >= 0 && st2.chat[mesId] && !st2.chat[mesId].is_user) {
-                    const mesEl = document.querySelector(`#chat .mes[mesid="${mesId}"]`);
-                    const mesTextEl = mesEl?.querySelector('.mes_text');
-                    if (mesTextEl) {
-                        attachStreamIntercept(mesTextEl, type === 'continue');
-                        logDebug(`Recast: [GENERATION_STARTED] stream intercepted on ${type} mesid=${mesId}.`);
+                    if (mesId >= 0 && st2.chat[mesId] && !st2.chat[mesId].is_user) {
+                        const mesEl = document.querySelector(`#chat .mes[mesid="${mesId}"]`);
+                        const mesTextEl = mesEl?.querySelector('.mes_text');
+                        if (mesTextEl) {
+                            if (extension_settings[extensionName].dynamic_substitution) {
+                                logDebug(`Recast: [GENERATION_STARTED] dynamic substitution active — preserving stream on ${type} mesid=${mesId}.`);
+                            } else {
+                                attachStreamIntercept(mesTextEl, type === 'continue');
+                                logDebug(`Recast: [GENERATION_STARTED] stream intercepted on ${type} mesid=${mesId}.`);
+                            }
+                        }
                     }
-                }
             } else {
                 // New message: MutationObserver will catch it the instant the DOM node appears
                 hideNextAiMessage = true;

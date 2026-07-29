@@ -1,7 +1,5 @@
 # Recast | SillyTavern Prose Post-Processing
 
-⚠️ CURRENTLY UNDER TESTING. I have no idea if it works on different workflows. ⚠️
-
 ## 🚀 Installation
 
 1. Open SillyTavern, go to the Extensions menu (boxes icon).
@@ -130,3 +128,8 @@ AGPL-3.0 LICENSE || Copyright (C) 2026 closuretxt || Please read LICENSE for mor
 - Tool Calling
 - Reroll button (Original > Goes again) / Pipeline Again (Pass result on the pipeline again) on the review menu
 - Localization
+- No scrolling when not at the bottom of the page
+- Show diff view button and inside the diff view able to reverse it
+- View model reasoning on diff page
+- If no connection preset or invalid, use the current one.
+- Dynamic Substitution
