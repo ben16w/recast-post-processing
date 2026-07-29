@@ -259,44 +259,34 @@ function safeUpdateMessageText(mesId, msg) {
     }
 }
 
-// Dynamic Substitution: blend previous text with incoming stream so sentences are gradually replaced
-function splitIntoChunks(text) {
-    const chunks = [];
-    let current = '';
-    const tokens = text.split(/(\s+)/);
-
-    for (const token of tokens) {
-        current += token;
-        const trimmed = token.trim();
-        if (trimmed.length > 0 && /[.!?…;:]$/.test(trimmed)) {
-            chunks.push(current);
-            current = '';
-        }
-    }
-
-    if (current) chunks.push(current);
-
-    return chunks;
-}
-
+// Dynamic Substitution: replace entire paragraphs at a time so text stays readable
 function blendStreamingText(oldText, newText) {
     if (!oldText) return newText;
     if (!newText) return oldText;
 
-    const oldChunks = splitIntoChunks(oldText);
-    const newChunks = splitIntoChunks(newText);
-    const blended = [];
-    const maxLen = Math.max(oldChunks.length, newChunks.length);
+    const oldParagraphs = oldText.split('\n');
+    const newParagraphs = newText.split('\n');
+    const maxParagraphs = Math.max(oldParagraphs.length, newParagraphs.length);
+    const blendedParagraphs = [];
 
-    for (let i = 0; i < maxLen; i++) {
-        if (i < newChunks.length) {
-            blended.push(newChunks[i]);
-        } else if (i < oldChunks.length) {
-            blended.push(oldChunks[i]);
+    for (let pi = 0; pi < maxParagraphs; pi++) {
+        const oldPara = oldParagraphs[pi] || '';
+        const newPara = newParagraphs[pi] || '';
+
+        // Show the new paragraph only when it is clearly complete:
+        // 1. The stream has already moved on to the next paragraph, OR
+        // 2. It is the last paragraph and ends with sentence-ending punctuation
+        const StreamMovedOn = pi < newParagraphs.length - 1;
+        const LooksComplete = /[.!?…;:]$/.test(newPara.trim());
+
+        if (newPara && (StreamMovedOn || LooksComplete)) {
+            blendedParagraphs.push(newPara);
+        } else {
+            blendedParagraphs.push(oldPara);
         }
     }
 
-    return blended.join('');
+    return blendedParagraphs.join('\n');
 }
 
 // PRESET stuff
@@ -746,6 +736,7 @@ export async function runPipeline(originalText, messageId, skipHide = false, pre
         let lastRegexResult = "";
         let lastRegexChunkLength = 0;
         const REGEX_THROTTLE_MS = 1000
+        let lastRenderedText = null;
 
         const onChunk = (chunkText) => {
             pipelineBar.updateChunk(chunkText);
@@ -770,6 +761,10 @@ export async function runPipeline(originalText, messageId, skipHide = false, pre
                     textToRender = blendStreamingText(currentText, textToRender);
                 }
 
+                // Skip DOM churn when the blended text hasn't actually changed
+                if (textToRender === lastRenderedText) return;
+                lastRenderedText = textToRender;
+
                 const msg = getST().chat[currentMessageId];
                 if (msg) {
                     msg.mes = prefixText + textToRender;
@@ -788,7 +783,7 @@ export async function runPipeline(originalText, messageId, skipHide = false, pre
                             false
                         );
 
-                        if (power_user && power_user.stream_fade_in) {
+                        if (power_user && power_user.stream_fade_in && !extension_settings[extensionName].dynamic_substitution) {
                             applyStreamFadeIn(mesTextEl, formattedText);
                         } else {
                             mesTextEl.innerHTML = formattedText;
@@ -836,7 +831,7 @@ export async function runPipeline(originalText, messageId, skipHide = false, pre
             if (msg) {
                 msg.mes = prefixText + currentText;
                 
-                if (onChunk && power_user && power_user.stream_fade_in) {
+                if (onChunk && power_user && power_user.stream_fade_in && !extension_settings[extensionName].dynamic_substitution) {
                     // Update DOM directly one last time to avoid abruptly overwriting the fade-in animation via updateMessageBlock
                     const mesEl = document.querySelector(`#chat .mes[mesid="${currentMessageId}"]`);
                     const mesTextEl = mesEl?.querySelector('.mes_text');
