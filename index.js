@@ -11,7 +11,7 @@ import { loadSettings, saveSettings, defaultSettings, initSettingsListeners } fr
 export { loadSettings, saveSettings, defaultSettings };
 
 // Self Util
-import { showDiffModal, initDiffViewer } from "./util/diffViewer.js";
+import { showDiffModal, initDiffViewer, updateRecastData, storeRecastData, injectReopenDiffButton, updateReopenDiffButtons, reopenDiffForMessage } from "./util/diffViewer.js";
 import { swapProfile } from "./util/profileSwapper.js";
 import { presetManager } from "./ui/presetManager.js";
 // Compatibility Extensions
@@ -871,6 +871,8 @@ export async function runPipeline(originalText, messageId, skipHide = false, pre
         isProcessing = false;
         return { skipped: true, reason: 'zero_passes' };
     }
+
+    storeRecastData(currentMessageId, originalFullText, finalFullText, _passSnapshots, _passNames);
     
     // When skipHide is active, the caller (MESSAGE_RECEIVED) handles typewriter display and saving.
     if (skipHide) {
@@ -902,6 +904,7 @@ export async function runPipeline(originalText, messageId, skipHide = false, pre
         }
 
         showDiffModal(originalFullText, finalFullText, (newText) => {
+            updateRecastData(currentMessageId, newText);
             acceptChanges(newText);
             isProcessing = false;
         }, () => {
@@ -1084,6 +1087,17 @@ jQuery(async () => {
 
     injectMessageTemplateButton();
 
+    // Inject reopen-diff button into message template and existing messages
+    injectReopenDiffButton();
+    updateReopenDiffButtons();
+
+    $(document).on("click", ".recast-reopen-diff-btn", function(e) {
+        e.stopPropagation();
+        const mesEl = $(this).closest('.mes');
+        const mesId = parseInt(mesEl.attr('mesid'), 10);
+        reopenDiffForMessage(mesId);
+    });
+
     $(document).on("click", ".recast-msg-btn", function(e) {
         e.stopPropagation();
         if (!extension_settings[extensionName].enabled) {
@@ -1180,6 +1194,26 @@ jQuery(async () => {
                 }
             });
             chatObserver.observe(chatDomEl, { childList: true });
+
+            // Separate observer to show reopen-diff buttons on newly added messages
+            const buttonObserver = new MutationObserver((mutations) => {
+                for (const mutation of mutations) {
+                    for (const node of mutation.addedNodes) {
+                        if (
+                            node.nodeType === Node.ELEMENT_NODE &&
+                            node.classList.contains('mes')
+                        ) {
+                            const mesId = parseInt(node.getAttribute('mesid'), 10);
+                            const msg = getST().chat[mesId];
+                            if (msg?.extra?.recast) {
+                                const btn = node.querySelector('.recast-reopen-diff-btn');
+                                if (btn) btn.style.display = '';
+                            }
+                        }
+                    }
+                }
+            });
+            buttonObserver.observe(chatDomEl, { childList: true });
         }
 
         // Pipeline
@@ -1247,6 +1281,7 @@ jQuery(async () => {
                             setButtonState(false);
                             isProcessing = false;
                         } else {
+                            updateRecastData(mesId, result);
                             acceptChanges(result);
                         }
                     } else {
@@ -1257,8 +1292,10 @@ jQuery(async () => {
                             safeUpdateMessageText(mesId, restoreMsg);
                         }
 
+                        const recastData = msg.extra?.recast;
                         // The UI already shows the streamed result, so we need a rejection callback to revert it
                         showDiffModal(originalText, result, (newText) => {
+                            updateRecastData(mesId, newText);
                             acceptChanges(newText);
                             isProcessing = false;
                         }, () => {
@@ -1270,7 +1307,7 @@ jQuery(async () => {
                             }
                             setButtonState(false);
                             isProcessing = false;
-                        }, _passSnapshots, _passNames);
+                        }, recastData?.snapshots, recastData?.passNames);
                     }
                 }, 500); // 500ms delay protects the final visual update
             } else {

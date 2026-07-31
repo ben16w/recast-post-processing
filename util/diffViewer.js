@@ -2,14 +2,17 @@
 // Word-level diff rendering and review modal management.
 // sponsored by claude the goat
 
+import { getContext } from "../../../../extensions.js";
+import { updateMessageBlock, messageFormatting } from "../../../../../script.js";
+
 /// Helpers
 
 function escapeHtml(str) {
     if (str === null || str === undefined) return "";
     return str
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;");
+        .replace(/&/g, "&")
+        .replace(/</g, "<")
+        .replace(/>/g, ">");
 }
 
 // Split text into tokens: words and whitespace, preserving round-trip fidelity
@@ -176,6 +179,48 @@ let _currentStep = 0;
 import { extension_settings } from "../../../../extensions.js";
 
 //
+
+function getST() {
+    return getContext();
+}
+
+function safeUpdateMessageText(mesId, msg) {
+    try {
+        updateMessageBlock(mesId, msg);
+    } catch (e) {
+        console.warn("Recast: Non-fatal error in updateMessageBlock", e);
+    }
+
+    const mesEl = $(`#chat .mes[mesid="${mesId}"]`);
+    if (mesEl.length > 0) {
+        const mesTextEl = mesEl.find('.mes_text');
+        if (mesTextEl.length > 0) {
+            mesTextEl.empty();
+            mesEl.find('.mes_edit_buttons').css('display', 'none');
+            mesEl.find('.mes_buttons').css('display', '');
+            mesTextEl.append(
+                messageFormatting(
+                    msg.mes,
+                    msg.name,
+                    msg.is_system,
+                    msg.is_user,
+                    mesId,
+                    {},
+                    false
+                )
+            );
+        }
+    }
+
+    const st = getST();
+    if (st.eventSource && st.event_types?.MESSAGE_EDITED) {
+        try {
+            st.eventSource.emit(st.event_types.MESSAGE_EDITED, mesId);
+        } catch (e) {
+            console.warn("Recast: Non-fatal error emitting MESSAGE_EDITED", e);
+        }
+    }
+}
 
 // Build comparison steps from pass snapshots.
 // snapshots: [originalText, afterPass1, afterPass2, ..., finalText]
@@ -378,5 +423,78 @@ export function initDiffViewer() {
     // Step navigation — dot clicks (delegated since dots are dynamic)
     $(document).on("click", "#recast_diff_dots .rc-diff-dot", function () {
         if (_steps) renderStep(parseInt($(this).data("step"), 10));
+    });
+}
+
+// Reopen Diff helpers
+export function updateRecastData(mesId, newText) {
+    const msg = getST().chat[mesId];
+    if (msg && msg.extra?.recast) {
+        msg.extra.recast.transformed = newText;
+        getST().saveChat();
+    }
+}
+
+export function storeRecastData(mesId, originalText, transformedText, snapshots, passNames) {
+    const msg = getST().chat[mesId];
+    if (!msg) return;
+    if (!msg.extra) msg.extra = {};
+    msg.extra.recast = {
+        original: originalText,
+        transformed: transformedText,
+        snapshots: snapshots ? [...snapshots] : [],
+        passNames: passNames ? [...passNames] : []
+    };
+    getST().saveChat();
+    showReopenDiffButton(mesId);
+}
+
+export function showReopenDiffButton(mesId) {
+    const btn = $(`#chat .mes[mesid="${mesId}"] .recast-reopen-diff-btn`);
+    if (btn.length) btn.show();
+}
+
+export function reopenDiffForMessage(mesId) {
+    const msg = getST().chat[mesId];
+    if (!msg || !msg.extra?.recast) return;
+
+    const data = msg.extra.recast;
+    showDiffModal(data.original, data.transformed, (newText) => {
+        updateRecastData(mesId, newText);
+        const msg = getST().chat[mesId];
+        if (msg) {
+            msg.mes = newText;
+            safeUpdateMessageText(mesId, msg);
+            getST().saveChat();
+        }
+    }, () => {
+        const msg = getST().chat[mesId];
+        if (msg) {
+            msg.mes = data.original;
+            safeUpdateMessageText(mesId, msg);
+            getST().saveChat();
+        }
+    }, data.snapshots, data.passNames);
+}
+
+export function injectReopenDiffButton() {
+    const html = `<div title="View Diff / Revert" class="mes_button recast-reopen-diff-btn interactable fa-solid fa-rotate-left" tabindex="0" style="display:none;"></div>`;
+    $("#message_template .mes_buttons .extraMesButtons").prepend(html);
+
+    $("#chat .mes .extraMesButtons").each(function() {
+        if ($(this).find(".recast-reopen-diff-btn").length === 0) {
+            $(this).prepend(html);
+        }
+    });
+}
+
+export function updateReopenDiffButtons() {
+    const st = getST();
+    $("#chat .mes").each(function() {
+        const mesId = parseInt($(this).attr('mesid'), 10);
+        const msg = st.chat[mesId];
+        if (msg?.extra?.recast) {
+            $(this).find(".recast-reopen-diff-btn").show();
+        }
     });
 }
