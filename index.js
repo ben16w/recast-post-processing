@@ -62,6 +62,23 @@ export function logDebug(...args) {
     }
 }
 
+// Returns true when the user is within 50 px of the bottom of the chat scroll area
+function isUserAtBottom() {
+    const chat = document.getElementById("chat");
+    if (!chat) return true;
+
+    let container = chat.parentElement;
+    while (container && container !== document.body) {
+        const style = window.getComputedStyle(container);
+        if (/(auto|scroll)/.test(style.overflowY)) {
+            return (container.scrollHeight - container.scrollTop - container.clientHeight) < 50;
+        }
+        container = container.parentElement;
+    }
+
+    return (document.documentElement.scrollHeight - window.scrollY - window.innerHeight) < 50;
+}
+
 // CONNECTION PROFILE MANAGER STUFF
 function getErrorStatusCode(error) {
     return error?.response?.status
@@ -788,7 +805,7 @@ export async function runPipeline(originalText, messageId, skipHide = false, pre
                         } else {
                             mesTextEl.innerHTML = formattedText;
                         }
-                        scrollChatToBottom({ waitForFrame: true });
+                        if (isUserAtBottom()) scrollChatToBottom({ waitForFrame: true });
                     } else if (mesEl) {
                         updateMessageBlock(currentMessageId, msg);
                     }
