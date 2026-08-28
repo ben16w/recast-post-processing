@@ -62,21 +62,43 @@ export function logDebug(...args) {
     }
 }
 
-// Returns true when the user is within 50 px of the bottom of the chat scroll area
+// Returns true when the user is within 50 px of the bottom of the chat scroll area.
+// Note: ST scrolls #chat itself (see scrollChatToBottom in script.js), so #chat must be
+// checked FIRST — the old implementation started at chat.parentElement and therefore
+// never looked at the real scroller, which made this always return true.
 function isUserAtBottom() {
-    const chat = document.getElementById("chat");
-    if (!chat) return true;
+    const threshold = 50;
+    const nearBottom = (el) => (el.scrollHeight - el.scrollTop - el.clientHeight) < threshold;
 
-    let container = chat.parentElement;
-    while (container && container !== document.body) {
-        const style = window.getComputedStyle(container);
-        if (/(auto|scroll)/.test(style.overflowY)) {
-            return (container.scrollHeight - container.scrollTop - container.clientHeight) < 50;
+    // Collect every element that could be the active scroll container:
+    // #chat itself, any scrollable ancestor (custom themes/layouts), and the document.
+    const chat = document.getElementById("chat");
+    const containers = [];
+
+    if (chat) {
+        containers.push(chat);
+
+        let container = chat.parentElement;
+        while (container && container !== document.body) {
+            const style = window.getComputedStyle(container);
+            if (/(auto|scroll)/.test(style.overflowY)) {
+                containers.push(container);
+            }
+            container = container.parentElement;
         }
-        container = container.parentElement;
     }
 
-    return (document.documentElement.scrollHeight - window.scrollY - window.innerHeight) < 50;
+    containers.push(document.scrollingElement || document.documentElement);
+
+    // If ANY container that actually has scrollable content shows we're away from
+    // the bottom, the user is not at the bottom.
+    for (const el of containers) {
+        if (el.clientHeight > 0 && el.scrollHeight > el.clientHeight + 1 && !nearBottom(el)) {
+            return false;
+        }
+    }
+
+    return true;
 }
 
 // CONNECTION PROFILE MANAGER STUFF
