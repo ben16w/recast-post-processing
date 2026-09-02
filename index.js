@@ -101,6 +101,91 @@ function isUserAtBottom() {
     return true;
 }
 
+// Scroll pinning: the end-of-pipeline updates (safeUpdateMessageText, final fade-in render,
+// the MESSAGE_EDITED event it emits) can make ST internals or other extensions (e.g. memory
+// extensions reacting to MESSAGE_EDITED) yank the chat back to the bottom even though the
+// user scrolled away. pinChatScroll() freezes the scroll position of every scrollable chat
+// container until the timeout expires OR the user interacts (wheel/touch/key/click), which
+// releases it immediately so manual scrolling is never blocked.
+let scrollPinState = null;
+
+function pinChatScroll(durationMs = 5000) {
+    if (isUserAtBottom()) return; // user is following along — nothing to pin
+
+    const scrollers = [];
+    const collect = (el) => {
+        if (el && el.clientHeight > 0 && el.scrollHeight > el.clientHeight + 1) {
+            const existing = scrollers.find(s => s.el === el);
+            if (existing) existing.top = el.scrollTop;
+            else scrollers.push({ el, top: el.scrollTop });
+        }
+    };
+
+    const chat = document.getElementById("chat");
+    if (chat) {
+        collect(chat);
+        let container = chat.parentElement;
+        while (container && container !== document.body) {
+            const style = window.getComputedStyle(container);
+            if (/(auto|scroll)/.test(style.overflowY)) collect(container);
+            container = container.parentElement;
+        }
+    }
+    collect(document.scrollingElement || document.documentElement);
+
+    if (scrollers.length === 0) return;
+
+    // Already pinning: refresh the captured positions and extend the timer
+    if (scrollPinState) {
+        for (const s of scrollers) {
+            const existing = scrollPinState.scrollers.find(x => x.el === s.el);
+            if (existing) existing.top = s.top;
+            else scrollPinState.scrollers.push(s);
+        }
+        clearTimeout(scrollPinState.timer);
+        scrollPinState.timer = setTimeout(releaseScrollPin, durationMs);
+        return;
+    }
+
+    const onScroll = () => {
+        if (!scrollPinState) return;
+        for (const s of scrollPinState.scrollers) {
+            if (s.el.scrollTop !== s.top) {
+                s.el.scrollTop = s.top;
+            }
+        }
+    };
+
+    function releaseScrollPin() {
+        if (!scrollPinState) return;
+        clearTimeout(scrollPinState.timer);
+        window.removeEventListener("scroll", onScroll, true);
+        window.removeEventListener("wheel", onUserInput, true);
+        window.removeEventListener("touchstart", onUserInput, true);
+        window.removeEventListener("mousedown", onUserInput, true);
+        window.removeEventListener("keydown", onUserInput, true);
+        scrollPinState = null;
+    }
+
+    // Any direct user input releases the pin instantly — user intent wins.
+    const onUserInput = (e) => {
+        // For keys, only release on keys that actually scroll the page
+        if (e.type === "keydown") {
+            const scrollKeys = ["ArrowUp", "ArrowDown", "PageUp", "PageDown", "Home", "End", " ", "Space"];
+            if (!scrollKeys.includes(e.key)) return;
+        }
+        releaseScrollPin();
+    };
+
+    scrollPinState = { scrollers, timer: setTimeout(releaseScrollPin, durationMs) };
+
+    window.addEventListener("scroll", onScroll, true);
+    window.addEventListener("wheel", onUserInput, true);
+    window.addEventListener("touchstart", onUserInput, true);
+    window.addEventListener("mousedown", onUserInput, true);
+    window.addEventListener("keydown", onUserInput, true);
+}
+
 // CONNECTION PROFILE MANAGER STUFF
 function getErrorStatusCode(error) {
     return error?.response?.status
@@ -246,6 +331,10 @@ function setButtonState(state) { // False unlocks, true locks it
 
 // Makes sure to update the message in chat. Had a lot of trouble in the past with this so there may be a bit too much stuff
 function safeUpdateMessageText(mesId, msg) {
+    // If the user scrolled away, pin the scroll position: this update (and the
+    // MESSAGE_EDITED event below) can make ST or other extensions scroll to the bottom.
+    pinChatScroll();
+
     try {
         updateMessageBlock(mesId, msg);
     } catch (e) {
@@ -869,9 +958,11 @@ export async function runPipeline(originalText, messageId, skipHide = false, pre
             const msg = getST().chat[currentMessageId];
             if (msg) {
                 msg.mes = prefixText + currentText;
-                
+
                 if (onChunk && power_user && power_user.stream_fade_in && !extension_settings[extensionName].dynamic_substitution) {
                     // Update DOM directly one last time to avoid abruptly overwriting the fade-in animation via updateMessageBlock
+                    // Pin the scroll: this path bypasses safeUpdateMessageText, so external scrolls wouldn't be reverted otherwise
+                    pinChatScroll();
                     const mesEl = document.querySelector(`#chat .mes[mesid="${currentMessageId}"]`);
                     const mesTextEl = mesEl?.querySelector('.mes_text');
                     if (mesTextEl) {
