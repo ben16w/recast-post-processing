@@ -677,14 +677,17 @@ export async function runPass(pass, text, onChunk = null) {
         console.warn("Recast: Error substituting macros via substituteParams for pass " + pass.name, e);
     }
 
-    // Always apply Regex to the raw message text before injecting it
+    // Apply Regex to the raw message text before injecting it — gated by "Apply regexes to output".
+    // depth: 0 makes the engine skip scripts restricted to deeper messages (depth 0 or N/A only).
     let regexedText = text;
-    try {
-        if (typeof getRegexedString === "function") {
-            regexedText = getRegexedString(text, regex_placement.AI_OUTPUT, { isPrompt: true, characterOverride: char?.name });
+    if (extension_settings[extensionName].apply_regexes !== false) {
+        try {
+            if (typeof getRegexedString === "function") {
+                regexedText = getRegexedString(text, regex_placement.AI_OUTPUT, { isPrompt: true, depth: 0, characterOverride: char?.name });
+            }
+        } catch (e) {
+            console.warn("Recast: Error applying regex to raw text for pass " + pass.name, e);
         }
-    } catch (e) {
-        console.warn("Recast: Error applying regex to raw text for pass " + pass.name, e);
     }
 
     // Apply ST Regex to outgoing prompts (enables prompt-only rules like 'Alter Outgoing Prompt')
