@@ -626,20 +626,6 @@ export async function runPass(pass, text, onChunk = null) {
         }
     }
 
-    // Apply ST Regex to outgoing prompts (enables prompt-only rules like 'Alter Outgoing Prompt')
-    try {
-        if (typeof getRegexedString === "function") {
-            if (extension_settings[extensionName].apply_regex_prompts) {
-                systemPrompt = getRegexedString(systemPrompt, regex_placement.AI_OUTPUT, { isPrompt: true, characterOverride: char?.name });
-                userPrompt = getRegexedString(userPrompt, regex_placement.AI_OUTPUT, { isPrompt: true, characterOverride: char?.name });
-                if (prefillPrompt) prefillPrompt = getRegexedString(prefillPrompt, regex_placement.AI_OUTPUT, { isPrompt: true, characterOverride: char?.name });
-                logDebug(`Pass ${pass.name}: outgoing prompt regex applied (isPrompt=true).`);
-            }
-        }
-    } catch (e) {
-        console.warn("Recast: Error applying outgoing prompt regex for pass " + pass.name, e);
-    }
-
     let userPrompt = UserParts.join("\n\n");
 
     // Substitute ST {{macros}} for both prompts (matches normal generation behavior)
@@ -1071,10 +1057,16 @@ function acceptChanges(newText) {
 }
 
 // REGEX
+// Only scripts that target assistant output AND allow depth 0 (or have no depth restriction) are applied by the engine
 function applySTRegex(text) {
+    if (extension_settings[extensionName].apply_regexes === false) {
+        logDebug("applySTRegex: apply_regexes disabled, returning raw text.");
+        return text;
+    }
+
     try {
         if (typeof getRegexedString === "function") {
-            const Result = getRegexedString(text, regex_placement.AI_OUTPUT);
+            const Result = getRegexedString(text, regex_placement.AI_OUTPUT, { depth: 0 });
             logDebug("ST regex applied:", Result);
             return Result ?? text;
         }
