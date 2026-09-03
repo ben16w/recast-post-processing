@@ -12,6 +12,7 @@ export { loadSettings, saveSettings, defaultSettings };
 
 // Self Util
 import { showDiffModal, initDiffViewer, updateRecastData, storeRecastData, injectReopenDiffButton, updateReopenDiffButtons, reopenDiffForMessage } from "./util/diffViewer.js";
+import { regexContextMessages } from "./util/contextRegex.js";
 import { swapProfile } from "./util/profileSwapper.js";
 import { presetManager } from "./ui/presetManager.js";
 // Compatibility Extensions
@@ -647,20 +648,12 @@ export async function runPass(pass, text, onChunk = null) {
 
             // Per-message regex filtering: each history message is regexed individually with
             // its own depth (the transformed message is depth 0, so the last history message is depth 1)
-            const ApplyContextRegex = extension_settings[extensionName].apply_regex_context;
-
-            const RegexedMessage = (msg, i) => {
-                if (!ApplyContextRegex || typeof getRegexedString !== "function") return msg.mes;
-                try {
-                    const Depth = History.length - i;
-                    const isUser = msg.is_user === true || msg.is_user === 'true';
-                    const Placement = isUser ? regex_placement.USER_INPUT : regex_placement.AI_OUTPUT;
-                    return getRegexedString(msg.mes, Placement, { isPrompt: true, depth: Depth, characterOverride: char?.name }) ?? msg.mes;
-                } catch (e) {
-                    console.warn("Recast: Error applying regex to context message", e);
-                    return msg.mes;
-                }
-            };
+            const RegexedMessages = regexContextMessages(History, {
+                getRegexedString,
+                regex_placement,
+                enabled: extension_settings[extensionName].apply_regex_context,
+                characterOverride: char?.name
+            });
 
             if (SendAsRoles) {
                 for (let i = 0; i < History.length; i++) {
@@ -670,15 +663,15 @@ export async function runPass(pass, text, onChunk = null) {
                     let role = 'assistant';
                     if (isUser) role = 'user';
                     if (isSystem) role = 'system';
-                    
+
                     // No NAME: prefix needed — roles already separate the messages
                     ContextMessages.push({
                         role: role,
-                        content: RegexedMessage(msg, i)
+                        content: RegexedMessages[i]
                     });
                 }
             } else {
-                const SceneContext = History.map((m, i) => `${m.name}: ${RegexedMessage(m, i)}`).join("\n");
+                const SceneContext = History.map((m, i) => `${m.name}: ${RegexedMessages[i]}`).join("\n");
                 UserParts.push(`<scene_context>\n${SceneContext}\n</scene_context>`);
             }
         }
