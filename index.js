@@ -439,6 +439,49 @@ function populateConnectionDropdown(selectElement, currentValue) {
     }
 }
 
+// PASS Editor Popup
+let passEditorItem = null;
+
+function isPassEditorOpen(item) {
+    return passEditorItem !== null && passEditorItem.is(item);
+}
+
+function openPassEditor(item) {
+    if (passEditorItem) closePassEditor();
+
+    passEditorItem = item;
+
+    // Park the live fields inside the modal — bindings, values and save wiring stay intact
+    const modal = $("#recast_pass_editor_modal");
+    $("#rc_pe_name_slot").append(item.find(".pass-name").detach());
+    $("#rc_pe_details_slot").append(item.find(".recast-pass-details").detach());
+    $("#rc_pe_options_slot").append(item.find(".pass-menu-dropdown").detach().show());
+    modal.data("host-pass-id", item.data("id"));
+
+    $("#recast_pass_editor_backdrop").fadeIn(200);
+    modal.fadeIn(220);
+}
+
+function closePassEditor() {
+    if (!passEditorItem) return;
+
+    const modal = $("#recast_pass_editor_modal");
+    const nameInput = $("#rc_pe_name_slot").children().detach();
+    const details = $("#rc_pe_details_slot").children().detach();
+    const options = $("#rc_pe_options_slot").children().detach().hide();
+
+    // Restore parked fields to their original spots in the pass row
+    passEditorItem.find(".recast-pass-header").children().first().append(nameInput);
+    passEditorItem.find(".pass-expand").parent().append(options);
+    passEditorItem.append(details);
+    modal.removeData("host-pass-id");
+    passEditorItem = null;
+
+    modal.fadeOut(200);
+    $("#recast_pass_editor_backdrop").fadeOut(180);
+    saveSettings();
+}
+
 // PASS Setup
 function addPassToUI(pass = null) {
     if (!pass) {
@@ -477,18 +520,14 @@ function addPassToUI(pass = null) {
     item.find(".pass-include-char-card").prop("checked", pass.includeCharCard !== undefined ? pass.includeCharCard : true);
     item.find(".pass-include-scene-context").prop("checked", pass.includeSceneContext !== undefined ? pass.includeSceneContext : true);
 
-    item.find(".pass-menu-btn").on("click", function(e) {
+    item.find(".pass-expand").on("click", function(e) {
         e.stopPropagation();
-        const dropdown = $(this).siblings(".pass-menu-dropdown");
-        $(".pass-menu-dropdown").not(dropdown).hide();
-        dropdown.toggle();
-    });
-
-    item.find(".pass-menu-dropdown").on("click", function(e) {
-        e.stopPropagation();
+        openPassEditor(item);
     });
 
     item.find(".pass-remove").on("click", function() {
+        // Close the editor first so its parked fields return before the row is removed
+        if (isPassEditorOpen(item)) closePassEditor();
         $(this).closest(".recast-pass-item").remove();
         saveSettings();
     });
@@ -1151,6 +1190,8 @@ jQuery(async () => {
 
     $("body").append(diffBackdrop);
     $("body").append(diffModal);
+    $("body").append(tempDiv.find("#recast_pass_editor_backdrop"));
+    $("body").append(tempDiv.find("#recast_pass_editor_modal"));
     $("body").append(tempDiv.find("#recast_preset_manager_modal"));
     
     // Append the rest to extensions settings
@@ -1192,6 +1233,22 @@ jQuery(async () => {
 
     $(document).on("click", function() {
         $(".pass-menu-dropdown").hide();
+    });
+
+    // Pass Editor popup close handlers
+    $("#rc_pe_close, #rc_pe_done, #recast_pass_editor_backdrop").on("click", () => {
+        closePassEditor();
+    });
+
+    $("#recast_pass_editor_modal").on("click", (e) => {
+        // Keep clicks inside the modal from hitting the global dropdown-closing handler
+        e.stopPropagation();
+    });
+
+    $(document).on("keydown", (e) => {
+        if (e.key === "Escape" && $("#recast_pass_editor_modal").is(":visible")) {
+            closePassEditor();
+        }
     });
 
     // BUTTON cool button stuff

@@ -435,6 +435,217 @@ ins.rc-ins {
     }
 }
 
+/* ===== Pass Editor Modal ===== */
+
+#recast_pass_editor_backdrop {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    inset: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.65);
+    backdrop-filter: blur(5px);
+    -webkit-backdrop-filter: blur(5px);
+    z-index: 19999;
+    pointer-events: auto;
+    animation: rc-fade-in 0.2s ease;
+}
+
+#recast_pass_editor_modal {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 88vw;
+    max-width: 1500px;
+    height: 88vh;
+    background: var(--SmartThemeBlurTintColor, #1a1a2e);
+    border: 1px solid var(--SmartThemeBorderColor, #444);
+    border-radius: 12px;
+    box-shadow: 0 24px 72px rgba(0, 0, 0, 0.75), 0 0 0 1px rgba(255,255,255,0.04);
+    z-index: 20000;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    animation: rc-slide-up 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.rc-pe-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--SmartThemeBorderColor, #444);
+    background: rgba(0, 0, 0, 0.25);
+    flex-shrink: 0;
+}
+
+.rc-pe-title {
+    font-size: 1.05em;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    color: var(--SmartThemeBodyColor, #eee);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    white-space: nowrap;
+}
+
+.rc-pe-title .fa-wand-magic-sparkles {
+    color: #a06be0;
+}
+
+#rc_pe_name_slot {
+    flex: 1;
+    min-width: 0;
+}
+
+/* Name input is parked here live from the pass row */
+#rc_pe_name_slot .pass-name {
+    width: 100%;
+    margin: 0;
+    font-weight: 600;
+}
+
+.rc-pe-close-btn {
+    background: none;
+    border: none;
+    color: var(--SmartThemeBodyColor, #aaa);
+    font-size: 1.15em;
+    cursor: pointer;
+    padding: 5px 9px;
+    border-radius: 6px;
+    transition: background 0.15s, color 0.15s;
+    flex-shrink: 0;
+}
+
+.rc-pe-close-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+}
+
+.rc-pe-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.rc-pe-section-label {
+    display: block;
+    font-size: 0.78em;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    opacity: 0.65;
+    margin-bottom: 6px;
+}
+
+/* Options dropdown is parked here live from the pass row and laid out inline */
+#rc_pe_options_slot .pass-menu-dropdown {
+    display: block !important;
+    position: static !important;
+    background: none !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    min-width: 0 !important;
+}
+
+#rc_pe_options_slot .checkbox_label {
+    margin-bottom: 4px;
+}
+
+/* Details block is parked here live from the pass row */
+#rc_pe_details_slot .recast-pass-details {
+    display: block !important;
+    margin-top: 0 !important;
+}
+
+/* Roomy prompt for actual writing */
+#rc_pe_details_slot .pass-prompt {
+    min-height: 38vh;
+    resize: vertical;
+    line-height: 1.5;
+}
+
+#rc_pe_details_slot .pass-prefill {
+    min-height: 14vh;
+    resize: vertical;
+}
+
+.rc-pe-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 14px 20px;
+    border-top: 1px solid var(--SmartThemeBorderColor, #444);
+    background: rgba(0, 0, 0, 0.25);
+    flex-shrink: 0;
+}
+
+.rc-pe-btn {
+    padding: 8px 36px !important;
+    font-size: 0.92em !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.04em;
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-width: 130px;
+    border-radius: 7px !important;
+    transition: filter 0.15s, transform 0.1s !important;
+}
+
+.rc-pe-btn:hover {
+    filter: brightness(1.15);
+    transform: translateY(-1px);
+}
+
+.rc-pe-btn:active {
+    transform: translateY(0);
+}
+
+/* Portrait (mobile) Pass Editor */
+
+@media (orientation: portrait) {
+    #recast_pass_editor_backdrop {
+        width: 100dvw;
+        height: 100dvh;
+    }
+
+    #recast_pass_editor_modal {
+        top: 2.5vh;
+        left: 2.5vw;
+        transform: none !important;
+        width: 95vw;
+        height: 95vh;
+        animation: rc-fade-in 0.22s ease;
+    }
+
+    #rc_pe_details_slot .pass-prompt {
+        min-height: 30vh;
+    }
+
+    #rc_pe_details_slot .pass-prefill {
+        min-height: 10vh;
+    }
+
+    /* Prevent iOS zoom on focus */
+    #rc_pe_details_slot textarea,
+    #rc_pe_details_slot select,
+    #rc_pe_name_slot .pass-name {
+        font-size: 16px;
+    }
+}
+
 @keyframes rc-fade-in {
     from { opacity: 0; }
     to   { opacity: 1; }

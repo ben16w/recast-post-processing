@@ -53,20 +53,26 @@ export const presetManager = {
         if (idx === -1) return;
         
         const passes = [];
+        // The pass editor popup temporarily parks one pass's fields inside the modal —
+        // extend the search scope to the modal for that pass so saving still sees them
+        const editorModal = $("#recast_pass_editor_modal");
+        const editorPassId = editorModal.is(":visible") ? editorModal.data("host-pass-id") : null;
         $("#recast_pass_list .recast-pass-item").each(function() {
+            const item = $(this);
+            const scope = editorPassId && item.data("id") === editorPassId ? item.add(editorModal) : item;
             passes.push({
-                id: $(this).data("id"),
-                name: $(this).find(".pass-name").val(),
-                enabled: $(this).find(".pass-enabled").prop("checked"),
-                contextLength: parseInt($(this).find(".pass-context-length").val(), 10),
-                prompt: $(this).find(".pass-prompt").val(),
-                prefill: $(this).find(".pass-prefill").val() || "",
-                prefillRole: $(this).find(".pass-prefill-role").val() || "assistant",
-                connection: $(this).find(".pass-connection").val(),
-                injectWorldInfo: $(this).find(".pass-inject-world-info").prop("checked"),
-                injectWIOutlets: $(this).find(".pass-inject-wi-outlets").prop("checked"),
-                includeCharCard: $(this).find(".pass-include-char-card").prop("checked"),
-                includeSceneContext: $(this).find(".pass-include-scene-context").prop("checked")
+                id: item.data("id"),
+                name: scope.find(".pass-name").val(),
+                enabled: scope.find(".pass-enabled").prop("checked"),
+                contextLength: parseInt(scope.find(".pass-context-length").val(), 10),
+                prompt: scope.find(".pass-prompt").val(),
+                prefill: scope.find(".pass-prefill").val() || "",
+                prefillRole: scope.find(".pass-prefill-role").val() || "assistant",
+                connection: scope.find(".pass-connection").val(),
+                injectWorldInfo: scope.find(".pass-inject-world-info").prop("checked"),
+                injectWIOutlets: scope.find(".pass-inject-wi-outlets").prop("checked"),
+                includeCharCard: scope.find(".pass-include-char-card").prop("checked"),
+                includeSceneContext: scope.find(".pass-include-scene-context").prop("checked")
             });
         });
         
@@ -92,6 +98,10 @@ export const presetManager = {
         
         const preset = extension_settings[extensionName].presets[idx];
         const list = $("#recast_pass_list");
+
+        // Close the pass editor first so its parked fields return before the list is rebuilt
+        if ($("#recast_pass_editor_modal").is(":visible")) $("#rc_pe_close").trigger("click");
+
         list.empty();
         
         if (preset && preset.passes && addPassToUIFn) {

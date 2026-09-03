@@ -171,6 +171,31 @@
     </div>
 </div>
 
+<!-- Pass Editor Backdrop -->
+<div id="recast_pass_editor_backdrop" style="display:none;"></div>
+
+<!-- Pass Editor Modal (live fields from the pass row get parked inside while open) -->
+<div id="recast_pass_editor_modal" style="display:none;">
+    <div class="rc-pe-header">
+        <span class="rc-pe-title"><i class="fa-solid fa-wand-magic-sparkles"></i> Advanced Preset View</span>
+        <div id="rc_pe_name_slot"></div>
+        <button id="rc_pe_close" class="rc-pe-close-btn" title="Close"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="rc-pe-body">
+        <div class="rc-pe-section">
+            <span class="rc-pe-section-label">Pass Options</span>
+            <div id="rc_pe_options_slot"></div>
+        </div>
+        <div class="rc-pe-section">
+            <span class="rc-pe-section-label">Settings & Prompt</span>
+            <div id="rc_pe_details_slot"></div>
+        </div>
+    </div>
+    <div class="rc-pe-footer">
+        <button id="rc_pe_done" class="menu_button rc-pe-btn"><i class="fa-solid fa-check"></i> Done</button>
+    </div>
+</div>
+
 <!-- Preset Manager Modal -->
 <div id="recast_preset_manager_modal" style="display:none;">
     <div class="rc-diff-header rc-pm-header">
@@ -200,9 +225,8 @@
             </div>
             <div style="display: flex; align-items: center; gap: 2px;">
                 <button class="menu_button pass-toggle-details fa-solid fa-chevron-down" title="Toggle Details"></button>
-                <div style="position: relative; display: inline-block;">
-                    <button class="menu_button pass-menu-btn fa-solid fa-ellipsis-vertical" title="Pass Options"></button>
-                    <div class="pass-menu-dropdown" style="display: none; position: absolute; right: 0; top: 100%; background: var(--SmartThemeBlurTintColor, #2a2a2a); border: 1px solid var(--SmartThemeBorderColor, #555); border-radius: 5px; padding: 8px 10px; z-index: 200; min-width: 170px; box-shadow: 0 4px 8px rgba(0,0,0,0.4); white-space: nowrap;">
+                <button class="menu_button pass-expand fa-solid fa-expand" title="Advanced Preset View"></button>
+                <div class="pass-menu-dropdown" style="display: none;">
                         <label class="checkbox_label" title="Inject active World Info entries into this pass's system prompt">
                             <input type="checkbox" class="pass-inject-world-info" />
                             <span>Inject World Info</span>
@@ -219,7 +243,6 @@
                             <input type="checkbox" class="pass-include-scene-context" />
                             <span>Include Scene Context</span>
                         </label>
-                    </div>
                 </div>
                 <button class="menu_button pass-remove fa-solid fa-trash red_button" title="Remove Pass"></button>
             </div>
