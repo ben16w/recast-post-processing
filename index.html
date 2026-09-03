@@ -64,9 +64,9 @@
                             <input type="checkbox" id="recast_debug_mode" />
                             <span>Debug Mode</span>
                         </label>
-                        <label class="checkbox_label" title="Apply Regex to outgoing system prompts (excluding the message to transform)">
-                            <input type="checkbox" id="recast_apply_regex_prompts" />
-                            <span>Apply regex on system prompts</span>
+                        <label class="checkbox_label" title="Apply SillyTavern Regex scripts to each Context Length message individually, using per-message depth and role placement (user vs assistant)">
+                            <input type="checkbox" id="recast_apply_regex_context" />
+                            <span>Apply regex to context messages</span>
                         </label>
                         <label class="checkbox_label" title="Apply SillyTavern Regex scripts to the message sent to passes and to the pipeline output (only scripts that apply to assistant messages at depth 0 or with no depth restriction)">
                             <input type="checkbox" id="recast_apply_regexes" />

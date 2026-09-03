@@ -644,6 +644,24 @@ export async function runPass(pass, text, onChunk = null) {
         const CharName = char ? char.name : "Assistant";
         const History = st.chat.slice(-(pass.contextLength + 1), -1);
         if (History.length > 0) {
+
+            // Per-message regex filtering: each history message is regexed individually with
+            // its own depth (the transformed message is depth 0, so the last history message is depth 1)
+            const ApplyContextRegex = extension_settings[extensionName].apply_regex_context;
+
+            const RegexedMessage = (msg, i) => {
+                if (!ApplyContextRegex || typeof getRegexedString !== "function") return msg.mes;
+                try {
+                    const Depth = History.length - i;
+                    const isUser = msg.is_user === true || msg.is_user === 'true';
+                    const Placement = isUser ? regex_placement.USER_INPUT : regex_placement.AI_OUTPUT;
+                    return getRegexedString(msg.mes, Placement, { isPrompt: true, depth: Depth, characterOverride: char?.name }) ?? msg.mes;
+                } catch (e) {
+                    console.warn("Recast: Error applying regex to context message", e);
+                    return msg.mes;
+                }
+            };
+
             if (SendAsRoles) {
                 for (let i = 0; i < History.length; i++) {
                     const msg = History[i];
@@ -653,13 +671,14 @@ export async function runPass(pass, text, onChunk = null) {
                     if (isUser) role = 'user';
                     if (isSystem) role = 'system';
                     
+                    // No NAME: prefix needed — roles already separate the messages
                     ContextMessages.push({
                         role: role,
-                        content: msg.name ? `${msg.name}: ${msg.mes}` : msg.mes
+                        content: RegexedMessage(msg, i)
                     });
                 }
             } else {
-                const SceneContext = History.map(m => `${m.name}: ${m.mes}`).join("\n");
+                const SceneContext = History.map((m, i) => `${m.name}: ${RegexedMessage(m, i)}`).join("\n");
                 UserParts.push(`<scene_context>\n${SceneContext}\n</scene_context>`);
             }
         }
@@ -688,20 +707,6 @@ export async function runPass(pass, text, onChunk = null) {
         } catch (e) {
             console.warn("Recast: Error applying regex to raw text for pass " + pass.name, e);
         }
-    }
-
-    // Apply ST Regex to outgoing prompts (enables prompt-only rules like 'Alter Outgoing Prompt')
-    try {
-        if (typeof getRegexedString === "function") {
-            if (extension_settings[extensionName].apply_regex_prompts) {
-                systemPrompt = getRegexedString(systemPrompt, regex_placement.AI_OUTPUT, { isPrompt: true, characterOverride: char?.name });
-                userPrompt = getRegexedString(userPrompt, regex_placement.AI_OUTPUT, { isPrompt: true, characterOverride: char?.name });
-                if (prefillPrompt) prefillPrompt = getRegexedString(prefillPrompt, regex_placement.AI_OUTPUT, { isPrompt: true, characterOverride: char?.name });
-                logDebug(`Pass ${pass.name}: outgoing prompt regex applied (isPrompt=true).`);
-            }
-        }
-    } catch (e) {
-        console.warn("Recast: Error applying outgoing prompt regex for pass " + pass.name, e);
     }
 
     // Inject the fully processed text at the end of userPrompt

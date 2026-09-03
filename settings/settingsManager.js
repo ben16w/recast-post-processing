@@ -17,7 +17,9 @@ export const defaultSettings = {
     legacy_api: false, // Swaps profiles and waits for them before doing the request, useful for fixing some issues with root ST code
     compatibility_mode: false, // Enables compatibility fixes for other extensions
     scene_context_as_roles: false,
+    
     apply_regexes: true, // Applies ST regex scripts to the pipeline output (assistant placement, depth 0 or N/A only)
+    apply_regex_context: true, // Applies ST regex scripts to each context message individually (per-message depth and role placement)
     min_chars: 60, // Skips if there's not enough characters. Useful for preventing rejections or shortcomings from triggering pipeline
     
     presets: defaultPresets,
@@ -25,7 +27,7 @@ export const defaultSettings = {
 };
 
 export function initSettingsListeners() {
-    $("#recast_enabled, #recast_autorun, #recast_inject, #recast_replace_inline, #recast_hide_until_last, #recast_dynamic_substitution, #recast_stream_pipeline, #recast_debug_mode, #recast_disable_editable_diff, #recast_apply_regex_prompts, #recast_apply_regexes, #recast_legacy_api, #recast_compatibility, #recast_scene_context_as_roles").on("change", saveSettings);
+    $("#recast_enabled, #recast_autorun, #recast_inject, #recast_replace_inline, #recast_hide_until_last, #recast_dynamic_substitution, #recast_stream_pipeline, #recast_debug_mode, #recast_disable_editable_diff, #recast_apply_regex_context, #recast_apply_regexes, #recast_legacy_api, #recast_compatibility, #recast_scene_context_as_roles").on("change", saveSettings);
     $("#recast_min_chars").on("input change", saveSettings);
 
     // Compatibility warn
@@ -58,7 +60,7 @@ export async function loadSettings() {
     $("#recast_stream_pipeline").prop("checked", extension_settings[extensionName].stream_pipeline);
     $("#recast_debug_mode").prop("checked", extension_settings[extensionName].debug_mode);
     $("#recast_disable_editable_diff").prop("checked", extension_settings[extensionName].disable_editable_diff);
-    $("#recast_apply_regex_prompts").prop("checked", extension_settings[extensionName].apply_regex_prompts);
+    $("#recast_apply_regex_context").prop("checked", extension_settings[extensionName].apply_regex_context);
     $("#recast_apply_regexes").prop("checked", extension_settings[extensionName].apply_regexes);
     $("#recast_legacy_api").prop("checked", extension_settings[extensionName].legacy_api);
     $("#recast_compatibility").prop("checked", extension_settings[extensionName].compatibility_mode);
@@ -79,7 +81,7 @@ export function saveSettings() {
     extension_settings[extensionName].stream_pipeline = $("#recast_stream_pipeline").prop("checked");
     extension_settings[extensionName].debug_mode = $("#recast_debug_mode").prop("checked");
     extension_settings[extensionName].disable_editable_diff = $("#recast_disable_editable_diff").prop("checked");
-    extension_settings[extensionName].apply_regex_prompts = $("#recast_apply_regex_prompts").prop("checked");
+    extension_settings[extensionName].apply_regex_context = $("#recast_apply_regex_context").prop("checked");
     extension_settings[extensionName].apply_regexes = $("#recast_apply_regexes").prop("checked");
     extension_settings[extensionName].legacy_api = $("#recast_legacy_api").prop("checked");
     extension_settings[extensionName].compatibility_mode = $("#recast_compatibility").prop("checked");
