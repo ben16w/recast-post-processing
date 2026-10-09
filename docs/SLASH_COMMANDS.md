@@ -78,6 +78,18 @@ You can also use macros and outlets inside Pass Prompts.
 
 ---
 
+### `/rc-passnametoggle`
+**Aliases:** `/recast-passnametoggle`  
+**Description:** Enables, disables, or toggles one pass in the active Recast preset by its exact name.
+- **Arguments:**
+  - `passName` *(String, Required)*: The exact pass name.
+  - `state` *(Boolean, Optional)*: The state to set (`true` or `false`). When omitted, the pass is toggled.
+- **Usage:**
+  - `/rc-passnametoggle "Prose Rhythm"` - Toggles the pass named `Prose Rhythm`.
+  - `/rc-passnametoggle "Prose Rhythm" false` - Disables the pass named `Prose Rhythm`.
+
+---
+
 ### `/rc-customrun`
 **Aliases:** `/recast-customrun`  
 **Description:** Runs a custom set of passes on a specific message without permanently changing your active preset. Useful for complex scripting workflows.

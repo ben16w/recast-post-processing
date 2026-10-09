@@ -8,6 +8,7 @@ import { presetManager } from "../ui/presetManager.js";
 /rc-toggle toggleTo (Toggles to true or false accordingly the extension enabled, if none just toggles it)
 /rc-diffToggle toggleTo (Toggles to true or false accordingly the diff viewer setting, if none just toggles it)
 /rc-passtoggle passes={1, 2} [state=true|false] (Toggles passes by 1-based position; state can be true or false)
+/rc-passnametoggle "Pass Name" [state] (Toggles one pass by its exact name; state can be true or false)
 
 /rc-customrun mesId=mesId passes={1, 2, 3} (allows you to run a custom pass with specific pass settings.)
 /rc-profile profileName (Switches current profile or returns the name of the current profile if nothing is passed)
@@ -242,6 +243,54 @@ export function initSlashCommands() {
             }),
             SlashCommandNamedArgument.fromProps({
                 name: 'state',
+                description: 'Boolean value to set the state (true/false)',
+                isRequired: false,
+                typeList: [ARGUMENT_TYPE.BOOLEAN],
+            }),
+        ],
+    }));
+
+    SlashCommandParser.addCommandObject(SlashCommand.fromProps({
+        name: 'rc-passnametoggle',
+        aliases: ['recast-passnametoggle'],
+        helpString: 'Enable, disable, or toggle a pass in the active Recast preset by its exact name.',
+        callback: (args, passReference, state) => {
+            const settings = extension_settings[extensionName];
+            const presetIndex = presetManager.getActivePresetIndex();
+            const preset = settings.presets?.[presetIndex];
+
+            if (!preset?.passes) {
+                toastr.warning("No active preset found.");
+                return "";
+            }
+
+            const rawPassReference = String(passReference).trim();
+            const inlineStateMatch = rawPassReference.match(/^(.*)\s+(true|false)$/i);
+            const passName = inlineStateMatch ? inlineStateMatch[1] : rawPassReference;
+            const requestedState = state ?? inlineStateMatch?.[2];
+            const pass = preset.passes.find(candidate => candidate.name === passName);
+
+            if (!pass) {
+                toastr.warning(`Pass "${passName}" was not found in the active preset.`);
+                return "";
+            }
+
+            pass.enabled = requestedState === "" || requestedState === undefined || requestedState === null
+                ? !pass.enabled
+                : String(requestedState).toLowerCase() === "true";
+
+            presetManager.loadActivePreset();
+            saveSettings();
+            toastr.info(`Recast pass "${pass.name}" is now ${pass.enabled ? "enabled" : "disabled"}.`);
+            return "";
+        },
+        unnamedArgumentList: [
+            SlashCommandArgument.fromProps({
+                description: 'Exact pass name',
+                isRequired: true,
+                typeList: [ARGUMENT_TYPE.STRING],
+            }),
+            SlashCommandArgument.fromProps({
                 description: 'Boolean value to set the state (true/false)',
                 isRequired: false,
                 typeList: [ARGUMENT_TYPE.BOOLEAN],
